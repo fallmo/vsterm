@@ -12,7 +12,16 @@ export interface OpenRequest {
   command?: string;
   cwd?: string;
   focus?: boolean;
+  /** Split next to another terminal of this group, or open a new tab if it has none. */
+  group?: string;
+  color?: Color;
+  /** Added to the terminal's inherited environment. */
+  env?: Record<string, string>;
 }
+
+/** Accepted colors; each maps to the theme color `terminal.ansi<Color>`. */
+export const COLORS = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white'] as const;
+export type Color = (typeof COLORS)[number];
 
 /** Body returned with a non-2xx status. */
 export interface ErrorResponse {

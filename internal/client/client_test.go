@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -46,11 +47,14 @@ func TestOpen(t *testing.T) {
 		}
 	})
 
-	want := protocol.OpenRequest{Name: "api", Command: `echo "hi"`, Cwd: "/src", Focus: true}
+	want := protocol.OpenRequest{
+		Name: "api", Command: `echo "hi"`, Cwd: "/src", Focus: true,
+		Group: "backend", Color: "green", Env: map[string]string{"PORT": "3001"},
+	}
 	if err := New(sock).Open(context.Background(), want); err != nil {
 		t.Fatal(err)
 	}
-	if got != want {
+	if !reflect.DeepEqual(got, want) {
 		t.Errorf("server got %+v, want %+v", got, want)
 	}
 }

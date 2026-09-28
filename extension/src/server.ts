@@ -1,5 +1,5 @@
 import * as http from 'node:http';
-import { OPEN_PATH, OpenRequest, ErrorResponse } from './protocol';
+import { COLORS, Color, OPEN_PATH, OpenRequest, ErrorResponse } from './protocol';
 
 const MAX_BODY_BYTES = 1 << 20;
 
@@ -60,7 +60,7 @@ export function parseOpenRequest(body: unknown): OpenRequest {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     throw new HttpError(400, 'body must be a JSON object');
   }
-  const { name, command, cwd, focus } = body as Record<string, unknown>;
+  const { name, command, cwd, focus, group, color, env } = body as Record<string, unknown>;
   if (typeof name !== 'string' || name === '') {
     throw new HttpError(400, 'name is required');
   }
@@ -73,5 +73,23 @@ export function parseOpenRequest(body: unknown): OpenRequest {
   if (focus !== undefined && typeof focus !== 'boolean') {
     throw new HttpError(400, 'focus must be a boolean');
   }
-  return { name, command, cwd, focus };
+  if (group !== undefined && typeof group !== 'string') {
+    throw new HttpError(400, 'group must be a string');
+  }
+  if (color !== undefined && !COLORS.includes(color as Color)) {
+    throw new HttpError(400, `color must be one of: ${COLORS.join(', ')}`);
+  }
+  if (env !== undefined && !isStringRecord(env)) {
+    throw new HttpError(400, 'env must be an object of string values');
+  }
+  return { name, command, cwd, focus, group: group || undefined, color: color as Color | undefined, env };
+}
+
+function isStringRecord(v: unknown): v is Record<string, string> {
+  return (
+    typeof v === 'object' &&
+    v !== null &&
+    !Array.isArray(v) &&
+    Object.entries(v).every(([k, val]) => k !== '' && !k.includes('=') && typeof val === 'string')
+  );
 }

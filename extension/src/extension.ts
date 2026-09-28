@@ -52,18 +52,48 @@ function openTerminal(req: OpenRequest): void {
     throw new HttpError(400, `cwd does not exist: ${req.cwd}`);
   }
 
-  // Replace an existing terminal of the same name, so re-running restarts it.
-  for (const t of vscode.window.terminals) {
-    if (t.name === req.name) {
-      t.dispose();
-    }
+  // Existing terminals of the same name are replaced, so re-running restarts them.
+  const replaced = vscode.window.terminals.filter((t) => t.name === req.name);
+
+  // Pick the split parent before disposing: a disposed terminal lingers in
+  // `window.terminals` until it has actually closed.
+  const parentTerminal = req.group
+    ? vscode.window.terminals.find((t) => !replaced.includes(t) && groupOf(t) === req.group)
+    : undefined;
+
+  for (const t of replaced) {
+    t.dispose();
   }
 
-  const terminal = vscode.window.createTerminal({ name: req.name, cwd: req.cwd });
+  const env: Record<string, string> = { ...req.env };
+  if (req.group) {
+    // Stored on the terminal itself so group membership needs no extension state.
+    env[GROUP_ENV] = req.group;
+  }
+
+  const terminal = vscode.window.createTerminal({
+    name: req.name,
+    cwd: req.cwd,
+    env,
+    color: req.color && new vscode.ThemeColor(`terminal.ansi${capitalize(req.color)}`),
+    location: parentTerminal && { parentTerminal },
+  });
   if (req.command) {
     terminal.sendText(req.command);
   }
   if (req.focus) {
     terminal.show(false);
   }
+}
+
+/** Environment variable recording a terminal's group. */
+const GROUP_ENV = 'VSTERM_GROUP';
+
+function groupOf(terminal: vscode.Terminal): string | undefined {
+  const options = terminal.creationOptions;
+  return 'env' in options ? options.env?.[GROUP_ENV] ?? undefined : undefined;
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

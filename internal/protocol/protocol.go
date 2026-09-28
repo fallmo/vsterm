@@ -17,7 +17,18 @@ type OpenRequest struct {
 	Command string `json:"command,omitempty"`
 	Cwd     string `json:"cwd,omitempty"`
 	Focus   bool   `json:"focus,omitempty"`
+	// Group splits the terminal next to another terminal of the same group,
+	// or opens a new tab if the group has none.
+	Group string `json:"group,omitempty"`
+	// Color is one of Colors.
+	Color string `json:"color,omitempty"`
+	// Env is added to the terminal's inherited environment.
+	Env map[string]string `json:"env,omitempty"`
 }
+
+// Colors are the accepted OpenRequest.Color values. The extension maps each to
+// the theme color terminal.ansi<Color>.
+var Colors = []string{"black", "red", "green", "yellow", "blue", "magenta", "cyan", "white"}
 
 // ErrorResponse is the body returned with a non-2xx status.
 type ErrorResponse struct {

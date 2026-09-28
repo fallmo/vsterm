@@ -41,7 +41,15 @@ function request(method: string, urlPath: string, body?: string): Promise<{ stat
 }
 
 test('opens a terminal', async () => {
-  const req: OpenRequest = { name: 'api', command: 'make run', cwd: '/src', focus: true };
+  const req: OpenRequest = {
+    name: 'api',
+    command: 'make run',
+    cwd: '/src',
+    focus: true,
+    group: 'backend',
+    color: 'green',
+    env: { PORT: '3001', URL: 'http://x?a=b,c' },
+  };
   const res = await request('POST', OPEN_PATH, JSON.stringify(req));
   assert.equal(res.status, 200);
   assert.deepEqual(opened.at(-1), req);
@@ -54,6 +62,11 @@ test('rejects invalid requests', async () => {
     ['{}', 400, 'name is required'],
     ['{"name":"a","command":1}', 400, 'command must be a string'],
     ['{"name":"a","focus":"yes"}', 400, 'focus must be a boolean'],
+    ['{"name":"a","group":1}', 400, 'group must be a string'],
+    ['{"name":"a","color":"pink"}', 400, 'color must be one of: black, red, green, yellow, blue, magenta, cyan, white'],
+    ['{"name":"a","env":{"PORT":3001}}', 400, 'env must be an object of string values'],
+    ['{"name":"a","env":{"A=B":"c"}}', 400, 'env must be an object of string values'],
+    ['{"name":"a","env":["PORT=1"]}', 400, 'env must be an object of string values'],
   ];
   for (const [body, status, error] of cases) {
     const res = await request('POST', OPEN_PATH, body);

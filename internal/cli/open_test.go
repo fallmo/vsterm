@@ -1,6 +1,9 @@
 package cli
 
-import "testing"
+import (
+	"maps"
+	"testing"
+)
 
 func TestJoinCommand(t *testing.T) {
 	tests := []struct {
@@ -22,5 +25,25 @@ func TestJoinCommand(t *testing.T) {
 				t.Errorf("joinCommand(%q) = %q, want %q", tt.args, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestParseEnv(t *testing.T) {
+	got, err := parseEnv([]string{"PORT=3001", "URL=http://x?a=b,c", "EMPTY=", "PORT=4000"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"PORT": "4000", "URL": "http://x?a=b,c", "EMPTY": ""}
+	if !maps.Equal(got, want) {
+		t.Errorf("parseEnv = %v, want %v", got, want)
+	}
+
+	if got, err := parseEnv(nil); got != nil || err != nil {
+		t.Errorf("parseEnv(nil) = %v, %v, want nil, nil", got, err)
+	}
+	for _, bad := range []string{"NOEQUALS", "=value"} {
+		if _, err := parseEnv([]string{bad}); err == nil {
+			t.Errorf("parseEnv(%q): want error", bad)
+		}
 	}
 }
