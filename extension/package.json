@@ -1,0 +1,34 @@
+{
+  "name": "vsterm",
+  "displayName": "vsterm",
+  "description": "Open named integrated terminals from the shell with the vsterm CLI.",
+  "version": "0.0.1",
+  "publisher": "fallmo",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fallmo/vsterm"
+  },
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -p . --watch",
+    "test": "npm run compile && node --test \"out/test/**/*.test.js\"",
+    "package": "vsce package --skip-license",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.43",
+    "@types/vscode": "~1.90.0",
+    "@vscode/vsce": "^4.0.0",
+    "typescript": "~5.9.3"
+  }
+}
