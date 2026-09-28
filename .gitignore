@@ -1,0 +1,14 @@
+# Go build output
+/dist/
+/vsterm
+*.test
+*.out
+
+# Extension
+/extension/node_modules/
+/extension/out/
+/extension/bin/
+*.vsix
+
+# OS / editors
+.DS_Store
