@@ -6,7 +6,12 @@ import * as path from 'node:path';
 import { SOCKET_ENV, OpenRequest } from './protocol';
 import { createServer, HttpError } from './server';
 
+let log: vscode.LogOutputChannel;
+
 export function activate(context: vscode.ExtensionContext): void {
+  log = vscode.window.createOutputChannel('vsterm', { log: true });
+  context.subscriptions.push(log);
+
   // One socket per window. Each window's terminals get their own window's
   // socket path, so `vsterm` always targets the window it runs in.
   const sock = path.join(os.tmpdir(), `vsterm-${crypto.randomBytes(6).toString('hex')}.sock`);
@@ -18,6 +23,7 @@ export function activate(context: vscode.ExtensionContext): void {
   server.listen(sock, () => {
     // The socket runs commands, so only this user may connect.
     fs.chmodSync(sock, 0o600);
+    log.info(`listening on ${sock}`);
   });
 
   const env = context.environmentVariableCollection;
@@ -52,6 +58,9 @@ function openTerminal(req: OpenRequest): void {
     throw new HttpError(400, `cwd does not exist: ${req.cwd}`);
   }
 
+  log.info(`open ${JSON.stringify(req)}`);
+  log.info(`terminals: ${vscode.window.terminals.map((t) => `${t.name} (group ${groupOf(t) ?? 'none'})`).join(', ')}`);
+
   // Existing terminals of the same name are replaced, so re-running restarts them.
   const replaced = vscode.window.terminals.filter((t) => t.name === req.name);
 
@@ -60,6 +69,10 @@ function openTerminal(req: OpenRequest): void {
   const parentTerminal = req.group
     ? vscode.window.terminals.find((t) => !replaced.includes(t) && groupOf(t) === req.group)
     : undefined;
+
+  if (req.group) {
+    log.info(`group ${req.group}: ${parentTerminal ? `splitting from ${parentTerminal.name}` : 'no other member, opening new tab'}`);
+  }
 
   for (const t of replaced) {
     t.dispose();
