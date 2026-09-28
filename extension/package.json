@@ -23,7 +23,8 @@
     "watch": "tsc -p . --watch",
     "test": "npm run compile && node --test \"out/test/**/*.test.js\"",
     "package": "vsce package --skip-license",
-    "vscode:prepublish": "npm run compile"
+    "vscode:prepublish": "npm run compile",
+    "dev": "npm run compile && code --extensionDevelopmentPath=\"$(pwd)\" \"$(dirname \"$(pwd)\")\""
   },
   "devDependencies": {
     "@types/node": "^20.19.43",
