@@ -11,7 +11,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"time"
 
 	"github.com/fallmo/vsterm/internal/protocol"
 )
@@ -39,8 +38,9 @@ func FromEnv() (*Client, error) {
 // New returns a client for the given socket path.
 func New(sock string) *Client {
 	return &Client{
+		// No client-wide timeout: callers set a deadline per request, since
+		// close waits for commands to exit.
 		http: &http.Client{
-			Timeout: 10 * time.Second,
 			Transport: &http.Transport{
 				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 					var d net.Dialer
@@ -53,10 +53,18 @@ func New(sock string) *Client {
 
 // Open asks the extension to open a named terminal.
 func (c *Client) Open(ctx context.Context, req protocol.OpenRequest) error {
-	return c.post(ctx, protocol.OpenPath, req)
+	return c.post(ctx, protocol.OpenPath, req, nil)
 }
 
-func (c *Client) post(ctx context.Context, path string, body any) error {
+// Close asks the extension to close terminals, waiting for them to stop.
+func (c *Client) Close(ctx context.Context, req protocol.CloseRequest) (protocol.CloseResponse, error) {
+	var resp protocol.CloseResponse
+	err := c.post(ctx, protocol.ClosePath, req, &resp)
+	return resp, err
+}
+
+// post sends body as JSON and, on success, decodes the response into out if non-nil.
+func (c *Client) post(ctx context.Context, path string, body, out any) error {
 	payload, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -75,6 +83,12 @@ func (c *Client) post(ctx context.Context, path string, body any) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if out == nil {
+			return nil
+		}
+		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+			return fmt.Errorf("decoding extension response: %w", err)
+		}
 		return nil
 	}
 	raw, _ := io.ReadAll(resp.Body)

@@ -4,11 +4,12 @@ import * as fs from 'node:fs';
 import * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { OPEN_PATH, OpenRequest } from '../protocol';
+import { CLOSE_PATH, CloseRequest, OPEN_PATH, OpenRequest } from '../protocol';
 import { createServer, HttpError } from '../server';
 
 const sock = path.join(os.tmpdir(), `vsterm-test-${process.pid}.sock`);
 const opened: OpenRequest[] = [];
+const closed: CloseRequest[] = [];
 
 const server = createServer({
   open(req) {
@@ -19,6 +20,10 @@ const server = createServer({
       throw new Error('boom');
     }
     opened.push(req);
+  },
+  close(req) {
+    closed.push(req);
+    return { closed: req.names ?? ['from-' + (req.group ?? 'all')] };
   },
 });
 
@@ -88,4 +93,36 @@ test('returns handler errors', async () => {
   const crash = await request('POST', OPEN_PATH, '{"name":"crash"}');
   assert.equal(crash.status, 500);
   assert.equal(crash.body.error, 'boom');
+});
+
+test('closes terminals, applying defaults', async () => {
+  const res = await request('POST', CLOSE_PATH, JSON.stringify({ group: 'backend' }));
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body, { closed: ['from-backend'] });
+  assert.deepEqual(closed.at(-1), { names: undefined, group: 'backend', all: undefined, force: false, timeoutMs: 5000 });
+
+  const byName = await request('POST', CLOSE_PATH, JSON.stringify({ names: ['api', 'worker'], force: true, timeoutMs: 100 }));
+  assert.deepEqual(byName.body, { closed: ['api', 'worker'] });
+  assert.equal(closed.at(-1)?.force, true);
+  assert.equal(closed.at(-1)?.timeoutMs, 100);
+});
+
+test('rejects invalid close requests', async () => {
+  const cases: [string, string][] = [
+    ['{}', 'specify exactly one of names, group or all'],
+    ['{"names":[]}', 'specify exactly one of names, group or all'],
+    ['{"names":["a"],"all":true}', 'specify exactly one of names, group or all'],
+    ['{"group":"g","all":true}', 'specify exactly one of names, group or all'],
+    ['{"names":"api"}', 'names must be an array of non-empty strings'],
+    ['{"names":[""]}', 'names must be an array of non-empty strings'],
+    ['{"all":"yes"}', 'all must be a boolean'],
+    ['{"all":true,"timeoutMs":0}', 'timeoutMs must be an integer between 1 and 60000'],
+    ['{"all":true,"timeoutMs":60001}', 'timeoutMs must be an integer between 1 and 60000'],
+    ['{"all":true,"timeoutMs":1.5}', 'timeoutMs must be an integer between 1 and 60000'],
+  ];
+  for (const [body, error] of cases) {
+    const res = await request('POST', CLOSE_PATH, body);
+    assert.equal(res.status, 400, body);
+    assert.equal(res.body.error, error, body);
+  }
 });

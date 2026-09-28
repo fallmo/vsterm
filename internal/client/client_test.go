@@ -82,3 +82,28 @@ func TestFromEnv(t *testing.T) {
 		t.Errorf("missing socket: got %v, want unavailable error", err)
 	}
 }
+
+func TestClose(t *testing.T) {
+	var got protocol.CloseRequest
+	sock := serve(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != protocol.ClosePath {
+			t.Errorf("got path %s, want %s", r.URL.Path, protocol.ClosePath)
+		}
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Error(err)
+		}
+		json.NewEncoder(w).Encode(protocol.CloseResponse{Closed: []string{"api", "worker"}})
+	})
+
+	want := protocol.CloseRequest{Group: "backend", Force: true, TimeoutMs: 2000}
+	resp, err := New(sock).Close(context.Background(), want)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("server got %+v, want %+v", got, want)
+	}
+	if !reflect.DeepEqual(resp.Closed, []string{"api", "worker"}) {
+		t.Errorf("closed = %v, want [api worker]", resp.Closed)
+	}
+}

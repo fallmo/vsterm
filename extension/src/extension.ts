@@ -3,20 +3,28 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { SOCKET_ENV, OpenRequest } from './protocol';
+import { SOCKET_ENV, CloseRequest, CloseResponse, OpenRequest } from './protocol';
 import { createServer, HttpError } from './server';
 
 let log: vscode.LogOutputChannel;
 
+/** Terminals currently running a command, as reported by shell integration. */
+const running = new Set<vscode.Terminal>();
+
 export function activate(context: vscode.ExtensionContext): void {
   log = vscode.window.createOutputChannel('vsterm', { log: true });
-  context.subscriptions.push(log);
+  context.subscriptions.push(
+    log,
+    vscode.window.onDidStartTerminalShellExecution((e) => running.add(e.terminal)),
+    vscode.window.onDidEndTerminalShellExecution((e) => running.delete(e.terminal)),
+    vscode.window.onDidCloseTerminal((t) => running.delete(t)),
+  );
 
   // One socket per window. Each window's terminals get their own window's
   // socket path, so `vsterm` always targets the window it runs in.
   const sock = path.join(os.tmpdir(), `vsterm-${crypto.randomBytes(6).toString('hex')}.sock`);
 
-  const server = createServer({ open: openTerminal });
+  const server = createServer({ open: openTerminal, close: closeTerminals });
   server.on('error', (err) => {
     vscode.window.showErrorMessage(`vsterm: could not listen on ${sock}: ${err.message}`);
   });
@@ -78,7 +86,8 @@ function openTerminal(req: OpenRequest): void {
     t.dispose();
   }
 
-  const env: Record<string, string> = { ...req.env };
+  // MANAGED_ENV marks the terminal as vsterm's, so `close` never touches others.
+  const env: Record<string, string> = { ...req.env, [MANAGED_ENV]: '1' };
   if (req.group) {
     // Stored on the terminal itself so group membership needs no extension state.
     env[GROUP_ENV] = req.group;
@@ -99,12 +108,72 @@ function openTerminal(req: OpenRequest): void {
   }
 }
 
+async function closeTerminals(req: CloseRequest): Promise<CloseResponse> {
+  log.info(`close ${JSON.stringify(req)}`);
+
+  // Terminals that have already exited may linger in `window.terminals`.
+  const managed = vscode.window.terminals.filter((t) => envOf(t)[MANAGED_ENV] === '1' && t.exitStatus === undefined);
+  let targets: vscode.Terminal[];
+  if (req.names) {
+    const missing = req.names.filter((n) => !managed.some((t) => t.name === n));
+    if (missing.length > 0) {
+      throw new HttpError(404, `no vsterm terminal named ${missing.join(', ')}`);
+    }
+    targets = managed.filter((t) => req.names!.includes(t.name));
+  } else if (req.group) {
+    targets = managed.filter((t) => groupOf(t) === req.group);
+  } else {
+    targets = managed;
+  }
+
+  await Promise.all(targets.map((t) => closeTerminal(t, req.force ?? false, req.timeoutMs!)));
+  return { closed: targets.map((t) => t.name) };
+}
+
+/** Sends Ctrl+C and waits for the command to stop (unless forced), then closes the terminal. */
+async function closeTerminal(terminal: vscode.Terminal, force: boolean, timeoutMs: number): Promise<void> {
+  // With shell integration we know whether a command is running; without it
+  // we can't tell, so interrupt and wait anyway.
+  const idle = terminal.shellIntegration !== undefined && !running.has(terminal);
+  if (!force && !idle) {
+    const stopped = waitForStop(terminal, timeoutMs);
+    terminal.sendText('\x03', false);
+    if (!(await stopped)) {
+      log.info(`${terminal.name}: still running after ${timeoutMs}ms, closing anyway`);
+    }
+  }
+  terminal.dispose();
+}
+
+/** Resolves true when the terminal's command ends or it closes, false on timeout. */
+function waitForStop(terminal: vscode.Terminal, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const done = (stopped: boolean) => {
+      clearTimeout(timer);
+      subscriptions.forEach((d) => d.dispose());
+      resolve(stopped);
+    };
+    const timer = setTimeout(() => done(false), timeoutMs);
+    const subscriptions = [
+      vscode.window.onDidEndTerminalShellExecution((e) => e.terminal === terminal && done(true)),
+      vscode.window.onDidCloseTerminal((t) => t === terminal && done(true)),
+    ];
+  });
+}
+
+/** Environment variable marking terminals opened by vsterm. */
+const MANAGED_ENV = 'VSTERM';
+
 /** Environment variable recording a terminal's group. */
 const GROUP_ENV = 'VSTERM_GROUP';
 
-function groupOf(terminal: vscode.Terminal): string | undefined {
+function envOf(terminal: vscode.Terminal): Record<string, string | null | undefined> {
   const options = terminal.creationOptions;
-  return 'env' in options ? options.env?.[GROUP_ENV] ?? undefined : undefined;
+  return ('env' in options && options.env) || {};
+}
+
+function groupOf(terminal: vscode.Terminal): string | undefined {
+  return envOf(terminal)[GROUP_ENV] ?? undefined;
 }
 
 function capitalize(s: string): string {

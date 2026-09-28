@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/fallmo/vsterm/internal/client"
 	"github.com/fallmo/vsterm/internal/protocol"
@@ -54,7 +56,9 @@ Terminals with the same --group are shown side by side as split panes.`,
 			if err != nil {
 				return err
 			}
-			return c.Open(cmd.Context(), req)
+			ctx, cancel := context.WithTimeout(cmd.Context(), 10*time.Second)
+			defer cancel()
+			return c.Open(ctx, req)
 		},
 	}
 

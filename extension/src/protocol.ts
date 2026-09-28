@@ -27,3 +27,28 @@ export type Color = (typeof COLORS)[number];
 export interface ErrorResponse {
   error: string;
 }
+
+/** HTTP endpoint that closes terminals opened by vsterm. */
+export const CLOSE_PATH = '/v1/close';
+
+/** Upper bound on CloseRequest.timeoutMs. */
+export const MAX_CLOSE_TIMEOUT_MS = 60_000;
+export const DEFAULT_CLOSE_TIMEOUT_MS = 5_000;
+
+/**
+ * Selects vsterm terminals to close with exactly one of names, group or all.
+ * Unless force is set, each running command is sent Ctrl+C and given up to
+ * timeoutMs to exit before its terminal is closed.
+ */
+export interface CloseRequest {
+  names?: string[];
+  group?: string;
+  all?: boolean;
+  force?: boolean;
+  timeoutMs?: number;
+}
+
+/** Names of the terminals that were closed. */
+export interface CloseResponse {
+  closed: string[];
+}

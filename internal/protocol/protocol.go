@@ -34,3 +34,22 @@ var Colors = []string{"black", "red", "green", "yellow", "blue", "magenta", "cya
 type ErrorResponse struct {
 	Error string `json:"error"`
 }
+
+// ClosePath is the HTTP endpoint that closes terminals opened by vsterm.
+const ClosePath = "/v1/close"
+
+// CloseRequest selects vsterm terminals to close with exactly one of Names,
+// Group or All. Unless Force is set, each running command is sent Ctrl+C and
+// given up to TimeoutMs to exit before its terminal is closed.
+type CloseRequest struct {
+	Names     []string `json:"names,omitempty"`
+	Group     string   `json:"group,omitempty"`
+	All       bool     `json:"all,omitempty"`
+	Force     bool     `json:"force,omitempty"`
+	TimeoutMs int      `json:"timeoutMs,omitempty"`
+}
+
+// CloseResponse lists the names of the terminals that were closed.
+type CloseResponse struct {
+	Closed []string `json:"closed"`
+}
