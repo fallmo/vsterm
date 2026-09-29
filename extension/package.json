@@ -1,7 +1,7 @@
 {
   "name": "vsterm",
   "displayName": "vsterm",
-  "description": "Open named integrated terminals from the shell with the vsterm CLI.",
+  "description": "Open VS Code terminals from the command line.",
   "version": "0.0.1",
   "publisher": "fallmo",
   "repository": {
