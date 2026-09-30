@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -45,12 +46,8 @@ Terminals with the same --group are shown side by side as split panes.`,
 				return err
 			}
 			req.Command = joinCommand(args)
-			if req.Cwd == "" {
-				wd, err := os.Getwd()
-				if err != nil {
-					return err
-				}
-				req.Cwd = wd
+			if req.Cwd, err = resolveCwd(req.Cwd); err != nil {
+				return err
 			}
 			c, err := client.FromEnv()
 			if err != nil {
@@ -73,6 +70,16 @@ Terminals with the same --group are shown side by side as split panes.`,
 	_ = cmd.RegisterFlagCompletionFunc("color", cobra.FixedCompletions(protocol.Colors, cobra.ShellCompDirectiveNoFileComp))
 
 	return cmd
+}
+
+// resolveCwd makes cwd absolute relative to the current directory, defaulting to
+// the current directory itself. The extension host runs elsewhere, so it can't
+// resolve relative paths.
+func resolveCwd(cwd string) (string, error) {
+	if cwd == "" {
+		return os.Getwd()
+	}
+	return filepath.Abs(cwd)
 }
 
 // parseEnv turns KEY=VALUE pairs into a map. Later pairs override earlier ones.

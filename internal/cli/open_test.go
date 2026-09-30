@@ -2,6 +2,8 @@ package cli
 
 import (
 	"maps"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -45,5 +47,37 @@ func TestParseEnv(t *testing.T) {
 		if _, err := parseEnv([]string{bad}); err == nil {
 			t.Errorf("parseEnv(%q): want error", bad)
 		}
+	}
+}
+
+func TestResolveCwd(t *testing.T) {
+	dir := t.TempDir()
+	t.Chdir(dir)
+	// Compare against Getwd, not dir: on macOS the temp dir may be reached via a symlink.
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		cwd  string
+		want string
+	}{
+		{"", wd},
+		{".", wd},
+		{"web", filepath.Join(wd, "web")},
+		{"./services/api", filepath.Join(wd, "services", "api")},
+		{"../other", filepath.Join(filepath.Dir(wd), "other")},
+		{"/abs/path", "/abs/path"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.cwd, func(t *testing.T) {
+			got, err := resolveCwd(tt.cwd)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got != tt.want {
+				t.Errorf("resolveCwd(%q) = %q, want %q", tt.cwd, got, tt.want)
+			}
+		})
 	}
 }
