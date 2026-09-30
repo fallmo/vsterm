@@ -12,3 +12,6 @@
 
 # OS / editors
 .DS_Store
+
+# Demo monorepo for screen recordings
+/demo/
