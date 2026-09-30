@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { SOCKET_ENV, CloseRequest, CloseResponse, Color, OpenRequest } from './protocol';
+import { hasChildProcesses } from './processes';
 import { createServer, HttpError } from './server';
 
 let log: vscode.LogOutputChannel;
@@ -132,10 +133,7 @@ async function closeTerminals(req: CloseRequest): Promise<CloseResponse> {
 
 /** Sends Ctrl+C and waits for the command to stop (unless forced), then closes the terminal. */
 async function closeTerminal(terminal: vscode.Terminal, force: boolean, timeoutMs: number): Promise<void> {
-  // With shell integration we know whether a command is running; without it
-  // we can't tell, so interrupt and wait anyway.
-  const idle = terminal.shellIntegration !== undefined && !running.has(terminal);
-  if (!force && !idle) {
+  if (!force && (await isBusy(terminal))) {
     const stopped = waitForStop(terminal, timeoutMs);
     terminal.sendText('\x03', false);
     if (!(await stopped)) {
@@ -145,10 +143,29 @@ async function closeTerminal(terminal: vscode.Terminal, force: boolean, timeoutM
   terminal.dispose();
 }
 
-/** Resolves true when the terminal's command ends or it closes, false on timeout. */
+/** Reports whether the terminal is running a command, assuming it is when unsure. */
+async function isBusy(terminal: vscode.Terminal): Promise<boolean> {
+  if (terminal.shellIntegration !== undefined) {
+    return running.has(terminal);
+  }
+  // Shells without shell integration (e.g. sh) are busy while they have children.
+  const pid = await terminal.processId;
+  return pid === undefined || ((await hasChildProcesses(pid)) ?? true);
+}
+
+/**
+ * Resolves true when the terminal's command ends or it closes, false on timeout.
+ * Shell integration reports the end of a command; without it, the shell's
+ * child processes are polled instead.
+ */
 function waitForStop(terminal: vscode.Terminal, timeoutMs: number): Promise<boolean> {
   return new Promise((resolve) => {
+    let finished = false;
     const done = (stopped: boolean) => {
+      if (finished) {
+        return;
+      }
+      finished = true;
       clearTimeout(timer);
       subscriptions.forEach((d) => d.dispose());
       resolve(stopped);
@@ -158,8 +175,22 @@ function waitForStop(terminal: vscode.Terminal, timeoutMs: number): Promise<bool
       vscode.window.onDidEndTerminalShellExecution((e) => e.terminal === terminal && done(true)),
       vscode.window.onDidCloseTerminal((t) => t === terminal && done(true)),
     ];
+    const poll = async () => {
+      const pid = await terminal.processId;
+      while (pid !== undefined && !finished) {
+        if ((await hasChildProcesses(pid)) === false) {
+          done(true);
+          return;
+        }
+        await new Promise((r) => setTimeout(r, STOP_POLL_MS));
+      }
+    };
+    void poll();
   });
 }
+
+/** How often to check whether an interrupted command has exited. */
+const STOP_POLL_MS = 100;
 
 /** Used when no --color is given. */
 const DEFAULT_COLOR: Color = 'blue';
