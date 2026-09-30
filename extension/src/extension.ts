@@ -3,7 +3,7 @@ import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { SOCKET_ENV, CloseRequest, CloseResponse, OpenRequest } from './protocol';
+import { SOCKET_ENV, CloseRequest, CloseResponse, Color, OpenRequest } from './protocol';
 import { createServer, HttpError } from './server';
 
 let log: vscode.LogOutputChannel;
@@ -97,7 +97,7 @@ function openTerminal(req: OpenRequest): void {
     name: req.name,
     cwd: req.cwd,
     env,
-    color: req.color && new vscode.ThemeColor(`terminal.ansi${capitalize(req.color)}`),
+    color: new vscode.ThemeColor(`terminal.ansi${capitalize(req.color ?? DEFAULT_COLOR)}`),
     location: parentTerminal && { parentTerminal },
   });
   if (req.command) {
@@ -160,6 +160,9 @@ function waitForStop(terminal: vscode.Terminal, timeoutMs: number): Promise<bool
     ];
   });
 }
+
+/** Used when no --color is given. */
+const DEFAULT_COLOR: Color = 'blue';
 
 /** Environment variable marking terminals opened by vsterm. */
 const MANAGED_ENV = 'VSTERM';

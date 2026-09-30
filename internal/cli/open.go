@@ -66,7 +66,7 @@ Terminals with the same --group are shown side by side as split panes.`,
 	cmd.Flags().StringVar(&req.Cwd, "cwd", "", "working directory (default: current directory)")
 	cmd.Flags().BoolVar(&req.Focus, "focus", false, "switch to the new terminal")
 	cmd.Flags().StringVarP(&req.Group, "group", "g", "", "split next to other terminals in this group")
-	cmd.Flags().StringVar(&req.Color, "color", "", "tab color: "+strings.Join(protocol.Colors, ", "))
+	cmd.Flags().StringVar(&req.Color, "color", "", "tab color: "+strings.Join(protocol.Colors, ", ")+" (default: blue)")
 	// StringArray, not StringSlice: values may contain commas.
 	cmd.Flags().StringArrayVarP(&env, "env", "e", nil, "environment variable KEY=VALUE (repeatable)")
 	_ = cmd.MarkFlagRequired("name")
