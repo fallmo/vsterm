@@ -1,10 +1,8 @@
 # vsterm
 
-Open VS Code terminals from the command line.
+Open/Close VS Code terminals from the command line.
 
-## Install
-
-Install the vsterm extension. `vsterm` is available in terminals opened after that.
+![vsterm demo](docs/demo.gif)
 
 ## Usage
 

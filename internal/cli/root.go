@@ -9,7 +9,7 @@ var Version = "dev"
 func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:           "vsterm",
-		Short:         "Open VS Code terminals from the command line",
+		Short:         "Open/Close VS Code terminals from the command line",
 		Version:       Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
