@@ -4,8 +4,6 @@ Open/Close VS Code terminals from the command line.
 
 ![vsterm demo](docs/demo.gif)
 
-![vsterm demo](docs/demo.gif)
-
 ## Usage
 
 ```sh
