@@ -31,5 +31,6 @@
     "@types/vscode": "~1.93.0",
     "@vscode/vsce": "^4.0.0",
     "typescript": "~5.9.3"
-  }
+  },
+  "icon": "images/icon.png"
 }
