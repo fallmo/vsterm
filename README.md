@@ -1,4 +1,4 @@
-# vsterm
+# VSCode Terminal CLI
 
 Open/Close VS Code terminals from the command line.
 
