@@ -1,9 +1,10 @@
 {
-  "name": "vsterm",
+  "name": "terminal-cli",
   "displayName": "Terminal CLI",
   "description": "Open/Close VS Code terminals from the command line.",
   "version": "0.0.1",
   "publisher": "fallmo",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/fallmo/vsterm"
